@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool NFC Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='motion-9') }}">
+</head>
+
+<body class="is-booting">
+  <div class="boot-screen" id="bootScreen" aria-hidden="true">
+    <div class="boot-content">
+      <span class="boot-title">Inventory</span>
+      <span class="boot-track"><span class="boot-progress"></span></span>
+    </div>
+  </div>
+  <main class="app-shell">
+    <header class="page-header">
+      <div class="header-copy">
+        <h1>Inventory</h1>
+        <p>Track tools in and out with a quick scan.</p>
+      </div>
+      <span class="reader-indicator" id="readerIndicator" data-state="checking">
+        <span class="indicator-dot" aria-hidden="true"></span>
+        <span id="scanStatus" role="status" aria-live="polite">Checking reader…</span>
+      </span>
+    </header>
+
+    <section class="scan-layout" aria-label="Scan a tool tag">
+      <div class="scan-card">
+        <div class="scan-copy">
+          <h2 id="scanHeading">Scan a tag</h2>
+          <p>Place a tag on the reader. We’ll find the tool or help you add it.</p>
+        </div>
+        <div class="scan-controls">
+          <button class="scan-btn" id="webNfcButton" type="button" onclick="startWebNFC()">
+            Enable phone scanning
+          </button>
+          <span class="scan-shortcut">ACR122U scans automatically</span>
+        </div>
+        <span class="scan-hint">USB keyboard scanners work while this page is active.</span>
+      </div>
+
+      <div class="scan-result" id="scanFeedback" data-state="idle" aria-live="polite">
+        <span class="feedback-mark" aria-hidden="true"></span>
+        <div class="feedback-copy">
+          <span class="feedback-label">Most recent scan</span>
+          <strong id="lastScannedId">Waiting for a tag</strong>
+          <p id="scanResult">Your scan details will appear here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="add-card" id="addToolCard" aria-labelledby="addToolHeading" hidden>
+      <div class="add-heading">
+        <div>
+          <h2 id="addToolHeading">Add this tool</h2>
+          <p>Give this tag a name to add it to your inventory.</p>
+        </div>
+        <button class="icon-button" type="button" id="cancelAddButton" aria-label="Dismiss">×</button>
+      </div>
+      <form id="addToolForm">
+        <div class="field">
+          <label for="toolName">Tool name</label>
+          <input type="text" id="toolName" placeholder="e.g. Cordless drill" maxlength="120" required>
+        </div>
+        <div class="field tag-field">
+          <label for="tagIdInput">Tag ID</label>
+          <input type="text" id="tagIdInput" readonly>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="addToolButton">Add to inventory</button>
+          <button class="secondary-btn" type="button" id="cancelAddButtonBottom" onclick="hideAddToolForm()">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="scanned-tool-card" id="scannedToolCard" aria-labelledby="scannedToolHeading" hidden>
+      <div class="scanned-tool-details">
+        <span class="scanned-tool-label">SCANNED TOOL</span>
+        <h2 id="scannedToolHeading"></h2>
+        <p id="scannedToolTagId"></p>
+        <span class="status-badge" id="scannedToolStatus"></span>
+      </div>
+      <div class="scanned-tool-actions" id="scannedToolActions">
+        <div class="scanned-tool-buttons">
+          <button type="button" id="scannedCheckInButton" class="secondary-btn">Check in</button>
+          <button type="button" id="scannedCheckOutButton">Check out</button>
+          <button type="button" id="scannedEditButton" class="secondary-btn">Edit name</button>
+          <button type="button" id="scannedDeleteButton" class="delete-btn">Delete</button>
+        </div>
+        <form class="scanned-edit-form" id="scannedEditForm" hidden>
+          <label for="scannedNameInput">Tool name</label>
+          <input type="text" id="scannedNameInput" maxlength="120" required>
+          <button type="submit" id="saveScannedNameButton">Save name</button>
+          <button type="button" class="secondary-btn" id="cancelScannedEditButton">Cancel</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="inventory-section" aria-labelledby="inventoryHeading">
+      <div class="inventory-heading">
+        <div>
+          <h2 id="inventoryHeading">Your tools</h2>
+          <p>Current location and check-in status.</p>
+        </div>
+        <span class="inventory-count" id="inventoryCount">0 tools</span>
+      </div>
+      <div class="inventory-tools">
+        <label class="search-box">
+          <span class="search-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Search tools</span>
+          <input id="inventorySearch" type="search" placeholder="Search by tool or tag">
+        </label>
+        <label class="filter-label" for="statusFilterButton">Show</label>
+        <div class="filter-select">
+          <button
+            class="filter-select-button"
+            id="statusFilterButton"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="statusFilterOptions"
+          >
+            <span id="statusFilterLabel">All tools</span>
+            <span class="filter-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="filter-options" id="statusFilterOptions" role="listbox" aria-label="Filter tools" hidden>
+            <button type="button" class="filter-option" role="option" tabindex="-1" data-value="all" aria-selected="true">All tools</button>
+            <button type="button" class="filter-option" role="option" tabindex="-1" data-value="Present" aria-selected="false">In workshop</button>
+            <button type="button" class="filter-option" role="option" tabindex="-1" data-value="Removed" aria-selected="false">Checked out</button>
+          </div>
+        </div>
+        <select id="statusFilter" class="visually-hidden" tabindex="-1" aria-hidden="true">
+          <option value="all">All tools</option>
+          <option value="Present">In workshop</option>
+          <option value="Removed">Checked out</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Tag ID</th>
+              <th>Status</th>
+              <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTable">
+            <tr><td class="table-message" colspan="4">Loading inventory…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="{{ url_for('static', filename='script.js', v='motion-7') }}"></script>
+</body>
+
+</html>
